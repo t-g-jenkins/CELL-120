@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CELL 120 · AI Teaching Assistant</title>
+<style>
+  :root {
+    --ink: #1c2b28;
+    --paper: #f6f5f0;
+    --panel: #ffffff;
+    --line: #d9dcd2;
+    --moss: #3d6b57;
+    --moss-dark: #2b4d3f;
+    --coral: #d97a5f;
+    --muted: #6b7570;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(61,107,87,0.08) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Georgia", serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 1.4rem 1.5rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  header .mark {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--paper);
+    background: var(--moss);
+    padding: 0.25rem 0.55rem;
+    border-radius: 5px;
+  }
+
+  header h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  header p {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0.15rem 0 0;
+    width: 100%;
+  }
+
+  /* ---- Setup screen ---- */
+
+  #setupScreen {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2.5rem 1rem;
+  }
+
+  .setup-card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    box-shadow: 0 6px 18px rgba(28, 43, 40, 0.06);
+  }
+
+  .setup-card h2 {
+    font-size: 1.15rem;
+    margin: 0 0 0.3rem;
+  }
+
+  .setup-card .sub {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0 1.4rem;
+  }
+
+  .field {
+    margin-bottom: 1.2rem;
+  }
+
+  .field label {
+    display: block;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--moss-dark);
+    margin-bottom: 0.4rem;
+  }
+
+  select, .setup-card input[type="text"] {
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.98rem;
+    padding: 0.55rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  select:focus-visible, .setup-card input[type="text"]:focus-visible {
+    outline: 2px solid var(--moss);
+    outline-offset: 1px;
+  }
+
+  .mode-options {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .mode-option {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.7rem 0.6rem;
+    cursor: pointer;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: var(--paper);
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+
+  .mode-option.selected {
+    border-color: var(--moss);
+    color: var(--moss-dark);
+    background: #eaf1ec;
+    font-weight: 600;
+  }
+
+  .mode-option:focus-visible {
+    outline: 2px solid var(--moss);
+    outline-offset: 2px;
+  }
+
+  #topicField {
+    display: none;
+  }
+
+  #startBtn {
+    width: 100%;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 0.92rem;
+    background: var(--moss);
+    color: var(--paper);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem;
+    cursor: pointer;
+    margin-top: 0.3rem;
+  }
+
+  #startBtn:hover { background: var(--moss-dark); }
+  #startBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* ---- Session bar ---- */
+
+  #sessionBar {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    background: #eaf1ec;
+    border-bottom: 1px solid var(--line);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--moss-dark);
+    text-align: center;
+    flex-wrap: wrap;
+  }
+
+  #sessionBar button {
+    background: none;
+    border: none;
+    color: var(--coral);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+
+  /* ---- Chat screen ---- */
+
+  #chatScreen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 1.25rem 1rem 6.5rem;
+    overflow-y: auto;
+  }
+
+  .thread {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .empty-state {
+    margin-top: 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .empty-state .cell {
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 0.9rem;
+    border: 2px solid var(--moss);
+    border-radius: 46% 54% 40% 60% / 55% 45% 55% 45%;
+    position: relative;
+  }
+
+  .empty-state .cell::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--coral);
+    border-radius: 50%;
+    top: 15px;
+    left: 15px;
+  }
+
+  .empty-state p { font-size: 0.9rem; max-width: 320px; margin: 0 auto; }
+
+  .msg {
+    display: flex;
+    gap: 0.7rem;
+    line-height: 1.5;
+    font-size: 0.98rem;
+  }
+
+  .msg .avatar {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .msg.user .avatar {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .msg.assistant .avatar {
+    background: var(--moss);
+    color: var(--paper);
+  }
+
+  .msg .bubble {
+    padding: 0.7rem 0.95rem;
+    border-radius: var(--radius);
+    max-width: 100%;
+    white-space: pre-wrap;
+  }
+
+  .msg.user .bubble {
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+
+  .msg.assistant .bubble {
+    background: transparent;
+    padding-left: 0;
+  }
+
+  .msg.assistant.loading .bubble {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .msg.error .bubble {
+    color: #9c3d2c;
+  }
+
+  form {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+    background: linear-gradient(to top, var(--paper) 60%, transparent);
+  }
+
+  .composer {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    gap: 0.6rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.5rem;
+    box-shadow: 0 6px 18px rgba(28, 43, 40, 0.07);
+  }
+
+  textarea {
+    flex: 1;
+    border: none;
+    resize: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.98rem;
+    padding: 0.4rem 0.4rem;
+    color: var(--ink);
+    max-height: 140px;
+  }
+
+  textarea:focus {
+    outline: none;
+  }
+
+  textarea:focus-visible {
+    outline: 2px solid var(--moss);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  button[type="submit"] {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: var(--moss);
+    color: var(--paper);
+    border: none;
+    border-radius: 7px;
+    padding: 0 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  button[type="submit"]:hover:not(:disabled) {
+    background: var(--moss-dark);
+  }
+
+  button[type="submit"]:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  button[type="submit"]:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="mark">CELL 120</span>
+  <h1>AI Teaching Assistant</h1>
+  <p>Guides you with questions instead of handing over answers. Not a substitute for office hours.</p>
+</header>
+
+<div id="setupScreen">
+  <div class="setup-card">
+    <h2>What are you working on?</h2>
+    <p class="sub">Pick a unit and how you'd like to work, then start.</p>
+
+    <div class="field">
+      <label for="unitSelect">Unit</label>
+      <select id="unitSelect">
+        <option value="1">Unit 1 — Scientific thinking</option>
+        <option value="2">Unit 2 — Cell theory</option>
+        <option value="3">Unit 3 — Introductory biochemistry</option>
+        <option value="4">Unit 4 — Introduction to bioenergetics</option>
+        <option value="5">Unit 5 — Reproduction and genetics</option>
+        <option value="6">Unit 6 — Evolution and adaptation</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label id="modeLabel">Mode</label>
+      <div class="mode-options" role="group" aria-labelledby="modeLabel">
+        <div class="mode-option selected" data-mode="topic" tabindex="0" role="button" aria-pressed="true">
+          Studying a topic
+        </div>
+        <div class="mode-option" data-mode="problems" tabindex="0" role="button" aria-pressed="false">
+          Sample problems
+        </div>
+      </div>
+    </div>
+
+    <div class="field" id="topicField">
+      <label for="topicInput">Specific topic (optional)</label>
+      <input type="text" id="topicInput" placeholder="e.g. osmosis, mitosis vs. meiosis…" />
+    </div>
+
+    <button id="startBtn">Start</button>
+  </div>
+</div>
+
+<div id="sessionBar">
+  <span id="sessionLabel"></span>
+  <button id="changeBtn" type="button">Change</button>
+</div>
+
+<div id="chatScreen">
+  <main>
+    <div class="thread" id="thread">
+      <div class="empty-state" id="emptyState">
+        <div class="cell"></div>
+        <p>Ask your first question — I'll help by asking a few of my own along the way.</p>
+      </div>
+    </div>
+  </main>
+
+  <form id="composerForm">
+    <div class="composer">
+      <textarea
+        id="input"
+        rows="1"
+        placeholder="Ask a question…"
+        autocomplete="off"
+      ></textarea>
+      <button type="submit" id="sendBtn">Send</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const setupScreen = document.getElementById("setupScreen");
+  const chatScreen = document.getElementById("chatScreen");
+  const sessionBar = document.getElementById("sessionBar");
+  const sessionLabel = document.getElementById("sessionLabel");
+  const changeBtn = document.getElementById("changeBtn");
+
+  const unitSelect = document.getElementById("unitSelect");
+  const modeOptions = document.querySelectorAll(".mode-option");
+  const topicField = document.getElementById("topicField");
+  const topicInput = document.getElementById("topicInput");
+  const startBtn = document.getElementById("startBtn");
+
+  const thread = document.getElementById("thread");
+  const emptyState = document.getElementById("emptyState");
+  const form = document.getElementById("composerForm");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("sendBtn");
+
+  let session = { unit: "1", mode: "topic", topic: "" };
+  let history = []; // { role: "user" | "assistant", content: string }
+
+  function selectMode(mode) {
+    session.mode = mode;
+    modeOptions.forEach((el) => {
+      const isSelected = el.dataset.mode === mode;
+      el.classList.toggle("selected", isSelected);
+      el.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    });
+    topicField.style.display = mode === "topic" ? "block" : "none";
+  }
+
+  modeOptions.forEach((el) => {
+    el.addEventListener("click", () => selectMode(el.dataset.mode));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectMode(el.dataset.mode);
+      }
+    });
+  });
+
+  function unitLabel(value) {
+    return unitSelect.options[unitSelect.selectedIndex].textContent;
+  }
+
+  function startSession() {
+    session.unit = unitSelect.value;
+    session.topic = topicInput.value.trim();
+
+    // reset conversation for the new context
+    history = [];
+    thread.innerHTML = "";
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.id = "emptyState";
+    empty.innerHTML = '<div class="cell"></div><p>Ask your first question — I\'ll help by asking a few of my own along the way.</p>';
+    thread.appendChild(empty);
+
+    const modeText = session.mode === "problems" ? "Sample problems" : "Studying a topic";
+    sessionLabel.textContent = `${unitLabel()} · ${modeText}${session.mode === "topic" && session.topic ? " — " + session.topic : ""}`;
+
+    setupScreen.style.display = "none";
+    sessionBar.style.display = "flex";
+    chatScreen.style.display = "flex";
+    input.focus();
+  }
+
+  startBtn.addEventListener("click", startSession);
+
+  changeBtn.addEventListener("click", () => {
+    chatScreen.style.display = "none";
+    sessionBar.style.display = "none";
+    setupScreen.style.display = "flex";
+  });
+
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 140) + "px";
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  function renderMessage({ role, content, isLoading, isError }) {
+    const empty = document.getElementById("emptyState");
+    if (empty) empty.remove();
+
+    const row = document.createElement("div");
+    row.className = "msg " + role + (isLoading ? " loading" : "") + (isError ? " error" : "");
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.textContent = role === "user" ? "You" : "TA";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = content;
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    thread.appendChild(row);
+    window.scrollTo(0, document.body.scrollHeight);
+    return bubble;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = "";
+    input.style.height = "auto";
+    sendBtn.disabled = true;
+
+    renderMessage({ role: "user", content: text });
+    history.push({ role: "user", content: text });
+
+    const loadingBubble = renderMessage({
+      role: "assistant",
+      content: "Thinking…",
+      isLoading: true,
+    });
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          messages: history,
+          unit: session.unit,
+          mode: session.mode,
+          topic: session.topic,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        loadingBubble.parentElement.classList.add("error");
+        loadingBubble.parentElement.classList.remove("loading");
+        loadingBubble.textContent = data.error || "Something went wrong. Please try again.";
+      } else {
+        loadingBubble.parentElement.classList.remove("loading");
+        loadingBubble.textContent = data.reply;
+        history.push({ role: "assistant", content: data.reply });
+      }
+    } catch (err) {
+      loadingBubble.parentElement.classList.add("error");
+      loadingBubble.parentElement.classList.remove("loading");
+      loadingBubble.textContent = "Couldn't reach the server. Check your connection and try again.";
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Local environment variables — never commit your API key
+.env
+.env.local
+.env*.local
+
+# Vercel
+.vercel
+
+# OS/editor cruft
+.DS_Store
+node_modules/
