@@ -36,6 +36,28 @@ the cache window — cost roughly 90% less on that portion. This is the "prompt
 caching" lever mentioned earlier as the biggest cost lever available; it's
 already wired in, nothing further to do.
 
+## How the question picker works
+
+In "Sample problems" mode, students now see a screen listing individual
+review questions for that unit — grouped by source document (e.g. "Quiz 6 -
+Fact Check", "Quiz 6 - Things to Know"), pulled from `data/questions.js`
+(583 questions total across all 6 units, parsed from your Canvas practice
+materials). Clicking one pins it at the top of the chat and tells Socrates
+exactly which question the student is working on. A "Skip" option is always
+available for general, non-question-specific chat.
+
+Each question is tagged with the specific lecture outline(s) it draws from
+(figured out from the "Use Outline N" notes in your Things to Know sheets).
+When a student seems to be missing the underlying concept, Socrates is
+instructed to point them to that material by name before continuing to
+guide them Socratically.
+
+**Answers stay server-side.** `api/questions.js` strips answer keys before
+sending the question list to the browser — a student checking the page
+source or network tab won't see correct answers, only question text. The
+full answer (used internally to keep Socrates' guidance accurate, never
+shown outright) only exists in `api/chat.js`'s calls to the Claude API.
+
 ## How the unit/mode selection works
 
 Before chatting, students pick a unit (1–6) and a mode — "Studying a topic"

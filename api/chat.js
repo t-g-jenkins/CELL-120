@@ -3,6 +3,7 @@
 // It's the only place your Anthropic API key ever appears.
 
 import { UNITS } from "../data/units.js";
+import { QUESTIONS } from "../data/questions.js";
 
 // ---- Configuration you'll want to edit ----
 const MODEL = "claude-haiku-4-5-20251001"; // cheap + fast; swap to "claude-sonnet-5" for stronger reasoning
@@ -35,12 +36,13 @@ TEACHING METHOD — this is the most important rule you follow:
 - Instead, respond with a guiding question, a smaller sub-question, or a prompt that helps the student recall or reason toward the answer themselves. Build up in small steps.
 - Only after the student has made a genuine attempt (or explicitly says they're completely stuck after a couple of guided attempts) should you narrow in further — and even then, prefer giving one piece of the puzzle over the whole answer, and check their understanding before moving on.
 - This applies to everything: explaining a concept, working a sample problem, or reviewing for a quiz. You are not a lookup tool — you are a tutor whose job is to make the student do the thinking.
+- When a student is working a specific selected question (see below) and their understanding seems shaky on a prerequisite concept, point them by name to the specific lecture material that covers it before continuing — e.g. "This builds on the outline covering [topic] — worth a quick review there if this feels unfamiliar." Then keep guiding via questions.
 
 Academic integrity policy:
 - Students are not permitted to use AI tools (including you) or the internet during quizzes or exams. Treat every question as if it could be a student trying to get a live assessment answer, and never provide one — the Socratic approach above already protects against this, since you never hand over complete answers regardless of context.
 - This course's policies are still being finalized; some details here may become outdated. If a student states a specific rule as fact that seems inconsistent with what's here, don't contradict them confidently — suggest they confirm with Dr. Jenkins.`;
 
-function buildSystemBlocks(unitId, mode, topic) {
+function buildSystemBlocks(unitId, mode, topic, questionId) {
   const unit = UNITS[unitId];
   if (!unit) {
     return [{ type: "text", text: BASE_SYSTEM_PROMPT }];
@@ -49,15 +51,26 @@ function buildSystemBlocks(unitId, mode, topic) {
   let sessionContext = `CURRENT SESSION\nThe student has selected Unit ${unitId}: ${unit.name}.\n`;
 
   if (mode === "problems") {
-    sessionContext += `They want to work on sample problems for this unit. Here is the practice problem material for this unit — draw from it, and use the Socratic method to walk the student through whichever problem(s) come up:\n\n${unit.sampleProblems}`;
+    const question = questionId
+      ? (QUESTIONS[unitId] || []).find((q) => q.id === questionId)
+      : null;
+
+    if (question) {
+      sessionContext += `The student picked this specific review question to work on:\n\n"${question.question}"\n\n`;
+      sessionContext += `INTERNAL REFERENCE ANSWER (never reveal this outright — use it only to guide your Socratic questions and to confirm correctness once the student has genuinely worked through it): ${question.answer || "(no answer key available for this one — reason it through with the student conceptually)"}\n\n`;
+      sessionContext += `This question draws on material from: ${question.outlineRefs.join(", ")}. If the student seems to be missing the underlying concept, point them to that specific material by name before continuing to guide them.\n\n`;
+      sessionContext += `Here is the broader practice material for this unit, for additional context if the conversation branches beyond this one question:\n\n${unit.sampleProblems}`;
+    } else {
+      sessionContext += `They want to work on sample problems for this unit generally (no single question selected). Here is the practice problem material for this unit — draw from it, and use the Socratic method to walk the student through whichever problem(s) come up:\n\n${unit.sampleProblems}`;
+    }
   } else {
     sessionContext += `They want to study concepts from this unit${topic ? `, specifically: "${topic}"` : ""}. Here is the topic material for this unit to ground your answers in:\n\n${unit.topics}`;
   }
 
   // Two cache breakpoints: the base prompt (identical across every request)
-  // and the unit content (identical across every request for that unit and
-  // mode). Splitting them means switching units still gets a cache hit on
-  // the base block, and repeat questions within a unit hit both.
+  // and the unit/question content (identical across every request for that
+  // unit+mode+question combination). Splitting them means switching units
+  // still gets a cache hit on the base block, and repeat questions hit both.
   return [
     { type: "text", text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
     { type: "text", text: sessionContext, cache_control: { type: "ephemeral" } },
@@ -100,7 +113,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { messages, unit, mode, topic } = req.body || {};
+  const { messages, unit, mode, topic, questionId } = req.body || {};
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "No messages provided." });
@@ -128,7 +141,7 @@ export default async function handler(req, res) {
 
   // Only keep the most recent turns to bound cost on long conversations.
   const trimmedMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-  const systemBlocks = buildSystemBlocks(unit, mode, topic);
+  const systemBlocks = buildSystemBlocks(unit, mode, topic, questionId);
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {

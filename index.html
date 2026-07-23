@@ -186,6 +186,149 @@
   #startBtn:hover { background: var(--moss-dark); }
   #startBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
+  /* ---- Picker screen ---- */
+
+  #pickerScreen {
+    display: none;
+    flex: 1;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+  }
+
+  .picker-card {
+    width: 100%;
+    max-width: 620px;
+  }
+
+  .picker-header {
+    position: relative;
+    margin-bottom: 1rem;
+  }
+
+  .picker-header h2 {
+    font-size: 1.15rem;
+    margin: 0 0 0.3rem;
+  }
+
+  .picker-header .sub {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  #pickerBackBtn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: none;
+    border: none;
+    color: var(--moss-dark);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .skip-picker {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #eaf1ec;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--moss-dark);
+    cursor: pointer;
+    margin-bottom: 1.1rem;
+  }
+
+  .skip-picker:hover { background: #ddeae1; }
+
+  .picker-loading {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .picker-group {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .picker-group summary {
+    cursor: pointer;
+    padding: 0.65rem 0.9rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--moss-dark);
+    list-style: none;
+  }
+
+  .picker-group summary::-webkit-details-marker { display: none; }
+
+  .picker-group summary::before {
+    content: "▸ ";
+  }
+
+  .picker-group[open] summary::before {
+    content: "▾ ";
+  }
+
+  .picker-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--line);
+    padding: 0.65rem 0.9rem;
+    font-family: "Iowan Old Style", "Georgia", serif;
+    font-size: 0.9rem;
+    color: var(--ink);
+    cursor: pointer;
+    line-height: 1.4;
+  }
+
+  .picker-item:hover { background: var(--paper); }
+  .picker-item:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; }
+
+  /* ---- Pinned question card in chat ---- */
+
+  .pinned-question {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto 1.1rem;
+    background: #eaf1ec;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.8rem 1rem;
+  }
+
+  .pinned-question .label {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--moss-dark);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  .pinned-question .qtext {
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
   /* ---- Session bar ---- */
 
   #sessionBar {
@@ -448,6 +591,22 @@
   </div>
 </div>
 
+<div id="pickerScreen">
+  <div class="picker-card">
+    <div class="picker-header">
+      <h2 id="pickerTitle">Pick a question</h2>
+      <p class="sub">Choose a specific review question to work through, or skip and chat generally.</p>
+      <button id="pickerBackBtn" type="button">← Back</button>
+    </div>
+    <button id="skipPickerBtn" type="button" class="skip-picker">
+      Skip — just start chatting about this unit generally
+    </button>
+    <div id="pickerList" class="picker-list">
+      <p class="picker-loading">Loading questions…</p>
+    </div>
+  </div>
+</div>
+
 <div id="sessionBar">
   <span id="sessionLabel"></span>
   <button id="changeBtn" type="button">Change</button>
@@ -478,6 +637,7 @@
 
 <script>
   const setupScreen = document.getElementById("setupScreen");
+  const pickerScreen = document.getElementById("pickerScreen");
   const chatScreen = document.getElementById("chatScreen");
   const sessionBar = document.getElementById("sessionBar");
   const sessionLabel = document.getElementById("sessionLabel");
@@ -489,13 +649,17 @@
   const topicInput = document.getElementById("topicInput");
   const startBtn = document.getElementById("startBtn");
 
+  const pickerTitle = document.getElementById("pickerTitle");
+  const pickerList = document.getElementById("pickerList");
+  const pickerBackBtn = document.getElementById("pickerBackBtn");
+  const skipPickerBtn = document.getElementById("skipPickerBtn");
+
   const thread = document.getElementById("thread");
-  const emptyState = document.getElementById("emptyState");
   const form = document.getElementById("composerForm");
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("sendBtn");
 
-  let session = { unit: "1", mode: "topic", topic: "" };
+  let session = { unit: "1", mode: "topic", topic: "", questionId: null, questionText: "" };
   let history = []; // { role: "user" | "assistant", content: string }
 
   function selectMode(mode) {
@@ -522,29 +686,121 @@
     return unitSelect.options[unitSelect.selectedIndex].textContent;
   }
 
-  function startSession() {
-    session.unit = unitSelect.value;
-    session.topic = topicInput.value.trim();
-
-    // reset conversation for the new context
+  function resetThread() {
     history = [];
     thread.innerHTML = "";
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.id = "emptyState";
-    empty.innerHTML = '<div class="cell"></div><p>Ask your first question — I\'ll help by asking a few of my own along the way.</p>';
-    thread.appendChild(empty);
+    if (session.mode === "problems" && session.questionText) {
+      const pinned = document.createElement("div");
+      pinned.className = "pinned-question";
+      pinned.innerHTML = '<span class="label">Working on</span><div class="qtext"></div>';
+      pinned.querySelector(".qtext").textContent = session.questionText;
+      thread.appendChild(pinned);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.id = "emptyState";
+      empty.innerHTML = '<div class="cell"></div><p>Ask your first question — I\'ll help by asking a few of my own along the way.</p>';
+      thread.appendChild(empty);
+    }
+  }
 
+  function goToChat() {
+    resetThread();
     const modeText = session.mode === "problems" ? "Sample problems" : "Studying a topic";
-    sessionLabel.textContent = `${unitLabel()} · ${modeText}${session.mode === "topic" && session.topic ? " — " + session.topic : ""}`;
+    let label = `${unitLabel()} · ${modeText}`;
+    if (session.mode === "topic" && session.topic) label += " — " + session.topic;
+    sessionLabel.textContent = label;
 
     setupScreen.style.display = "none";
+    pickerScreen.style.display = "none";
     sessionBar.style.display = "flex";
     chatScreen.style.display = "flex";
     input.focus();
   }
 
+  async function loadPicker() {
+    session.unit = unitSelect.value;
+    pickerTitle.textContent = `Pick a question — ${unitLabel()}`;
+    pickerList.innerHTML = '<p class="picker-loading">Loading questions…</p>';
+
+    setupScreen.style.display = "none";
+    pickerScreen.style.display = "flex";
+
+    try {
+      const res = await fetch(`/api/questions?unit=${encodeURIComponent(session.unit)}`);
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.questions)) {
+        pickerList.innerHTML = '<p class="picker-loading">Couldn\'t load questions. Try again, or skip to chat generally.</p>';
+        return;
+      }
+      renderPicker(data.questions);
+    } catch (err) {
+      pickerList.innerHTML = '<p class="picker-loading">Couldn\'t reach the server. Try again, or skip to chat generally.</p>';
+    }
+  }
+
+  function renderPicker(questions) {
+    pickerList.innerHTML = "";
+    if (questions.length === 0) {
+      pickerList.innerHTML = '<p class="picker-loading">No questions loaded for this unit yet.</p>';
+      return;
+    }
+
+    // group by source doc, preserving first-seen order
+    const groups = new Map();
+    for (const q of questions) {
+      if (!groups.has(q.source)) groups.set(q.source, []);
+      groups.get(q.source).push(q);
+    }
+
+    for (const [source, items] of groups.entries()) {
+      const details = document.createElement("details");
+      details.className = "picker-group";
+      const summary = document.createElement("summary");
+      summary.textContent = `${source} (${items.length})`;
+      details.appendChild(summary);
+
+      for (const q of items) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "picker-item";
+        btn.textContent = q.question.length > 160 ? q.question.slice(0, 160) + "…" : q.question;
+        btn.addEventListener("click", () => {
+          session.questionId = q.id;
+          session.questionText = q.question;
+          goToChat();
+        });
+        details.appendChild(btn);
+      }
+      pickerList.appendChild(details);
+    }
+  }
+
+  function startSession() {
+    session.unit = unitSelect.value;
+    session.topic = topicInput.value.trim();
+    session.questionId = null;
+    session.questionText = "";
+
+    if (session.mode === "problems") {
+      loadPicker();
+    } else {
+      goToChat();
+    }
+  }
+
   startBtn.addEventListener("click", startSession);
+
+  pickerBackBtn.addEventListener("click", () => {
+    pickerScreen.style.display = "none";
+    setupScreen.style.display = "flex";
+  });
+
+  skipPickerBtn.addEventListener("click", () => {
+    session.questionId = null;
+    session.questionText = "";
+    goToChat();
+  });
 
   changeBtn.addEventListener("click", () => {
     chatScreen.style.display = "none";
@@ -613,6 +869,7 @@
           unit: session.unit,
           mode: session.mode,
           topic: session.topic,
+          questionId: session.questionId,
         }),
       });
 
