@@ -10,7 +10,7 @@ const MAX_OUTPUT_TOKENS = 500; // caps how long each answer can be (cost control
 const MAX_HISTORY_MESSAGES = 12; // only send the last N messages of a conversation (cost control)
 const MAX_MESSAGE_LENGTH = 4000; // characters; blocks absurdly long pastes
 
-const BASE_SYSTEM_PROMPT = `You are the AI teaching assistant for CELL 120 at Brigham Young University, taught by Dr. Tim Jenkins. This is an introductory biology course covering cell theory, chemistry of life, bioenergetics, reproduction, and evolutionary theory, taught through a flipped-classroom model: students watch short lecture videos at home, then use class time to apply concepts to real examples with the instructor.
+const BASE_SYSTEM_PROMPT = `You are CELL 120 Socrates, the AI teaching assistant for CELL 120 at Brigham Young University, taught by Dr. Tim Jenkins. If asked your name, you are "CELL 120 Socrates" — not a generic assistant. This is an introductory biology course covering cell theory, chemistry of life, bioenergetics, reproduction, and evolutionary theory, taught through a flipped-classroom model: students watch short lecture videos at home, then use class time to apply concepts to real examples with the instructor.
 
 Course units, in order:
 1. Scientific thinking
@@ -40,11 +40,13 @@ Academic integrity policy:
 - Students are not permitted to use AI tools (including you) or the internet during quizzes or exams. Treat every question as if it could be a student trying to get a live assessment answer, and never provide one — the Socratic approach above already protects against this, since you never hand over complete answers regardless of context.
 - This course's policies are still being finalized; some details here may become outdated. If a student states a specific rule as fact that seems inconsistent with what's here, don't contradict them confidently — suggest they confirm with Dr. Jenkins.`;
 
-function buildSystemPrompt(unitId, mode, topic) {
+function buildSystemBlocks(unitId, mode, topic) {
   const unit = UNITS[unitId];
-  if (!unit) return BASE_SYSTEM_PROMPT;
+  if (!unit) {
+    return [{ type: "text", text: BASE_SYSTEM_PROMPT }];
+  }
 
-  let sessionContext = `\n\nCURRENT SESSION\nThe student has selected Unit ${unitId}: ${unit.name}.\n`;
+  let sessionContext = `CURRENT SESSION\nThe student has selected Unit ${unitId}: ${unit.name}.\n`;
 
   if (mode === "problems") {
     sessionContext += `They want to work on sample problems for this unit. Here is the practice problem material for this unit — draw from it, and use the Socratic method to walk the student through whichever problem(s) come up:\n\n${unit.sampleProblems}`;
@@ -52,7 +54,14 @@ function buildSystemPrompt(unitId, mode, topic) {
     sessionContext += `They want to study concepts from this unit${topic ? `, specifically: "${topic}"` : ""}. Here is the topic material for this unit to ground your answers in:\n\n${unit.topics}`;
   }
 
-  return BASE_SYSTEM_PROMPT + sessionContext;
+  // Two cache breakpoints: the base prompt (identical across every request)
+  // and the unit content (identical across every request for that unit and
+  // mode). Splitting them means switching units still gets a cache hit on
+  // the base block, and repeat questions within a unit hit both.
+  return [
+    { type: "text", text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+    { type: "text", text: sessionContext, cache_control: { type: "ephemeral" } },
+  ];
 }
 
 // Very simple in-memory rate limiter. Note: on Vercel's serverless platform,
@@ -119,7 +128,7 @@ export default async function handler(req, res) {
 
   // Only keep the most recent turns to bound cost on long conversations.
   const trimmedMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-  const systemPrompt = buildSystemPrompt(unit, mode, topic);
+  const systemBlocks = buildSystemBlocks(unit, mode, topic);
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -132,7 +141,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_OUTPUT_TOKENS,
-        system: systemPrompt,
+        system: systemBlocks,
         messages: trimmedMessages,
       }),
     });

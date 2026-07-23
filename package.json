@@ -1,6 +1,6 @@
 {
-  "name": "cell120-ta",
+  "name": "cell120-socrates",
   "version": "1.0.0",
   "private": true,
-  "description": "AI teaching assistant for CELL 120"
+  "description": "CELL 120 Socrates — AI Socratic teaching assistant for CELL 120"
 }
